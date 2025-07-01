@@ -132,9 +132,8 @@ DefaultCallback
 """
 
 
-def DefaultCallback(data):
-    pass
-    #print repr(data)
+def DefaultCallback(*args, **kwargs):
+    print("DefaultCallback called with:", args, kwargs)
 
 
 """ ADS1299 PINS """
