@@ -5,7 +5,7 @@
 # descr: This files implements the basic features required to operate the ADS1299 using the SPI port
          of a Raspberry Pi (tested on RPi 3, Raspbian Lite Jessie).
          
-         The API handles the communication over the SPI port and uses a separate thread - managed by GPIO - 
+         The API handles the communication over the SPI port and uses a separate thread - managed by lgpio - 
          to process samples sent by the ADS1299. Samples received are pushed to a registered callback in 
          the form of a numpy Array with a length equal to the number of channels (think of observer pattern).
          
@@ -13,7 +13,7 @@
          
          A stubbed mode is also available to develop with the API offline, in that mode random numbers are
          returned at a rate close to the defined sampling rate. Stubbed mode becomes active whenever spidev
-         cannot be imported properly. 
+         or lgpio cannot be imported properly. 
          
          Public methods overview:
          
@@ -60,6 +60,7 @@
   Requirements and setup:
     - numpy:  https://scipy.org/install.html
     - spidev:  https://pypi.python.org/pypi/spidev
+    - lgpio:  https://pypi.org/project/lgpio/
     - how to configure SPI on raspberry Pi: https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md
       Note: I had to $sudo chmod 777 /dev/spide0.0 and reboot the raspberry pi to get access to the SPI device
 """
@@ -82,7 +83,7 @@ except ImportError:
 
 STUB_GPIO = False
 try:
-    import RPi.GPIO as GPIO
+    import lgpio
 except ImportError:
     STUB_GPIO = True
 
@@ -168,6 +169,12 @@ class ADS1299_API(object):
     # spi port
     spi = None
 
+    # GPIO chip handle for lgpio
+    gpio_chip = None
+    
+    # lgpio callback instance for DRDY
+    drdy_callback_instance = None
+
     # thread processing inputs
     stubThread = None
     APIAlive = True
@@ -209,17 +216,19 @@ class ADS1299_API(object):
             self.spi.max_speed_hz = 4000000
             self.spi.mode = 0b01
 
-            # using BCM pin numbering scheme
-            GPIO.setmode(GPIO.BCM)
+            # open GPIO chip (default gpiochip0)
+            self.gpio_chip = lgpio.gpiochip_open(0)
 
-            # setup control pins
-            GPIO.setup(START_PIN, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(nRESET_PIN, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(nPWRDN_PIN, GPIO.OUT, initial=GPIO.LOW)
+            # setup control pins as outputs with initial low state
+            lgpio.gpio_claim_output(self.gpio_chip, START_PIN, 0)
+            lgpio.gpio_claim_output(self.gpio_chip, nRESET_PIN, 0)
+            lgpio.gpio_claim_output(self.gpio_chip, nPWRDN_PIN, 0)
 
-            # setup DRDY callback
-            GPIO.setup(DRDY_PIN, GPIO.IN)
-            GPIO.add_event_detect(DRDY_PIN, GPIO.FALLING, callback=self.drdy_callback)
+            # setup DRDY pin as input
+            lgpio.gpio_claim_input(self.gpio_chip, DRDY_PIN)
+            
+            # setup DRDY callback for falling edge detection
+            self.drdy_callback_instance = lgpio.callback(self.gpio_chip, DRDY_PIN, lgpio.FALLING_EDGE, self._lgpio_drdy_callback)
 
         else:
 
@@ -244,8 +253,16 @@ class ADS1299_API(object):
 
     def closeDevice(self):
         if STUB_SPI == False and STUB_GPIO == False:
+            # Clean up lgpio resources
+            if self.drdy_callback_instance is not None:
+                self.drdy_callback_instance.cancel()
+                self.drdy_callback_instance = None
+            
+            if self.gpio_chip is not None:
+                lgpio.gpiochip_close(self.gpio_chip)
+                self.gpio_chip = None
+            
             self.spi.close()
-            GPIO.cleanup()
 
         self.APIAlive = False
         return
@@ -485,6 +502,19 @@ class ADS1299_API(object):
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     """ PRIVATE
+    # _lgpio_drdy_callback
+    # @brief wrapper for lgpio callback - converts lgpio callback signature to match original drdy_callback
+    # @param chip, gpiochip (not used)
+    # @param gpio, GPIO number (not used)
+    # @param level, GPIO level (not used)
+    # @param timestamp, timestamp (not used)
+    """
+
+    def _lgpio_drdy_callback(self, chip, gpio, level, timestamp):
+        # Call the original callback with the level parameter to maintain compatibility
+        self.drdy_callback(level)
+
+    """ PRIVATE
     # drdy_callback
     # @brief callback triggered on DRDY falling edge. When this happens, if the stream
              is active, will get all the sample from the ADS1299 and update all
@@ -517,11 +547,11 @@ class ADS1299_API(object):
     """
 
     def setStart(self, state):
-        if STUB_GPIO == False:
+        if STUB_GPIO == False and self.gpio_chip is not None:
             if state:
-                GPIO.output(START_PIN, GPIO.HIGH)
+                lgpio.gpio_write(self.gpio_chip, START_PIN, 1)
             else:
-                GPIO.output(START_PIN, GPIO.LOW)
+                lgpio.gpio_write(self.gpio_chip, START_PIN, 0)
 
     """ PRIVATE
     # toggleReset
@@ -542,11 +572,11 @@ class ADS1299_API(object):
     """
 
     def setnReset(self, state):
-        if STUB_GPIO == False:
+        if STUB_GPIO == False and self.gpio_chip is not None:
             if state:
-                GPIO.output(nRESET_PIN, GPIO.HIGH)
+                lgpio.gpio_write(self.gpio_chip, nRESET_PIN, 1)
             else:
-                GPIO.output(nRESET_PIN, GPIO.LOW)
+                lgpio.gpio_write(self.gpio_chip, nRESET_PIN, 0)
 
     """ PRIVATE
     # setnPWRDN
@@ -555,11 +585,11 @@ class ADS1299_API(object):
     """
 
     def setnPWRDN(self, state):
-        if STUB_GPIO == False:
+        if STUB_GPIO == False and self.gpio_chip is not None:
             if state:
-                GPIO.output(nPWRDN_PIN, GPIO.HIGH)
+                lgpio.gpio_write(self.gpio_chip, nPWRDN_PIN, 1)
             else:
-                GPIO.output(nPWRDN_PIN, GPIO.LOW)
+                lgpio.gpio_write(self.gpio_chip, nPWRDN_PIN, 0)
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     #   SPI Interface
