@@ -88,7 +88,7 @@ sudo apt-get install python3-venv python3-pip git
 Clone the library from GitHub:
 
 ```bash
-git clone https://github.com/wjcroft/RaspberryPiADS1299.git
+git clone https://github.com/Ryansolar14/RaspberryPiADS1299-lib.git
 cd RaspberryPiADS1299
 ```
 
