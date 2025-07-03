@@ -22,7 +22,7 @@ ads.startEegStream()
 # wait
 sleep(10)
 
-print "ADS1299 API test stream stopping"
+print ("ADS1299 API test stream stopping")
 
 # stop device
 ads.stopStream()
