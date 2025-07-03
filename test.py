@@ -1,5 +1,5 @@
 from RaspberryPiADS1299 import ADS1299_API
-from RaspberryPiADS1299 import DefaultCallback
+from RaspberryPiADS1299.ADS1299_API import DefaultCallback
 from time import sleep
 from time import time, sleep
 
