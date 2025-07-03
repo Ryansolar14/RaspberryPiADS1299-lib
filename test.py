@@ -1,4 +1,4 @@
-from RaspberryPiADS1299 import ADS1299_API
+from RaspberryPiADS1299 import ADS1299_API, DefaultCallback
 from time import time, sleep
 
 # init ads api
