@@ -132,8 +132,8 @@ DefaultCallback
 """
 
 
-def DefaultCallback(*args, **kwargs):
-    print("DefaultCallback called with:", args, kwargs)
+def DefaultCallback(data):
+    pass
 
 
 """ ADS1299 PINS """
@@ -227,7 +227,7 @@ class ADS1299_API(object):
             lgpio.gpio_claim_input(self.gpio_chip, DRDY_PIN)
             
             # setup DRDY callback for falling edge detection
-            self.drdy_callback_instance = lgpio.callback(self.gpio_chip, DRDY_PIN, lgpio.FALLING_EDGE, self._lgpio_drdy_callback)
+            self.drdy_callback_instance = lgpio.callback(h, DRDY_PIN, lgpio.FALLING_EDGE, self.drdy_callback)
 
         else:
 
