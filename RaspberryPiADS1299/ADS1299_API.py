@@ -134,7 +134,7 @@ DefaultCallback
 
 def DefaultCallback(data):
     pass
-    print repr(data)
+    print(repr(data))
 
 
 """ ADS1299 PINS """
