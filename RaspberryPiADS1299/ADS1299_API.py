@@ -658,7 +658,8 @@ class ADS1299_API(object):
             self.spi_lock.release()
             for i in range(0, nb_bytes):
                 r[i]
-
+            print("Data")
+            print(r)
         return r
 
 
