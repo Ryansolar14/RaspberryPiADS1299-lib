@@ -536,6 +536,8 @@ class ADS1299_API(object):
         for i in range(0, self.nb_channels):
             data_array[i] = conv24bitsToFloat(bit_values[(i * 3 + 3):((i + 1) * 3 + 3)])
 
+         print(data_array)
+
         # broadcast results
         for handle in self.clientUpdateHandles:
             handle(data_array)
